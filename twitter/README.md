@@ -34,3 +34,25 @@ npm run contract:emit
 ```
 
 To use the framework's development server directly, run `npm run dev`. This direct mode requires `DATABASE_URL`.
+
+
+.env configuration
+DATABASE_URL=
+
+JWT_SECRET=
+
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=
+SMTP_SECURE=true
+
+SMTP_USER=
+SMTP_PASSWORD=
+
+EMAIL_FROM=
+
+FRONTEND_URL=http://localhost:5173
+
+
+
+GOOGLE_CLIENT_ID=

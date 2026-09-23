@@ -73,3 +73,7 @@ export default defineConfig([
 ])
 
 ```
+
+
+.env configuration
+VITE_GOOGLE_CLIENT_ID= same as in your backend google client id

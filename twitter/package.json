@@ -1,0 +1,58 @@
+{
+  "name": "twitter",
+  "private": true,
+  "packageManager": "npm@10.9.0",
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "composer:deploy": "prisma deploy module.ts",
+    "composer:dev": "prisma dev module.ts",
+    "contract:emit": "prisma contract emit",
+    "db:init": "prisma db init",
+    "db:update": "prisma db update",
+    "db:verify": "prisma db verify",
+    "deploy": "npm run build && npm run composer:deploy",
+    "dev": "tsx watch src/index.ts",
+    "dev:composer": "npm run build && npm run composer:dev",
+    "migrate": "prisma db migrate",
+    "migration:plan": "prisma migration plan",
+    "migration:show": "prisma migration show",
+    "migration:status": "prisma migration status",
+    "skills:sync": "prisma skills sync || exit 0",
+    "start": "node dist/server.mjs",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "dependencies": {
+    "@prisma/composer": "0.17.0",
+    "@prisma/composer-prisma-cloud": "0.17.0",
+    "@prisma/orm-postgres": "8.0.0-rc.8",
+    "alchemy": "2.0.0-beta.74",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "google-auth-library": "^11.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.10",
+    "resend": "^6.28.1",
+    "temporal-polyfill": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^25.9.6",
+    "@types/nodemailer": "^8.0.2",
+    "prisma": "latest",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "effect": "4.0.0-rc.112"
+  }
+}

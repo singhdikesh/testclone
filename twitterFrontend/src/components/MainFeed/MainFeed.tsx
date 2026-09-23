@@ -22,6 +22,7 @@ const formatDate = (date: string) => {
 const MainFeed = () => {
   const [posts, setPosts] = useState<PostState[]>([])
   const [content, setContent] = useState('')
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState<'for-you' | 'following' | 'notifications' | 'follow' | 'bookmarks' | 'profile'>('for-you')
   const [isLoading, setIsLoading] = useState(true)
   const [isPosting, setIsPosting] = useState(false)
@@ -36,6 +37,38 @@ const MainFeed = () => {
   const [profileForm, setProfileForm] = useState({ name: '', username: '', email: '', bio: '', avatar: '', coverImage: '' })
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
+
+  async function loadProfile(profileUserId = currentUserId()) {
+    const userId = profileUserId
+    if (!userId) {
+      setError('Log in first to view your profile.')
+      return
+    }
+
+    try {
+      const response = await feedApi.getUser(userId)
+      const nextProfile = response.data
+      setProfile(nextProfile)
+      const viewerId = currentUserId()
+      if (viewerId && viewerId !== userId) {
+        const followingResponse = await feedApi.getFollowing(viewerId)
+        setProfileFollowing(followingResponse.data.includes(userId))
+      } else {
+        setProfileFollowing(false)
+      }
+      setProfileForm({
+        name: nextProfile.name ?? '',
+        username: nextProfile.username ?? '',
+        email: nextProfile.email ?? '',
+        bio: nextProfile.bio ?? '',
+        avatar: nextProfile.avatar ?? '',
+        coverImage: nextProfile.coverImage ?? '',
+      })
+    } catch (profileError) {
+      setError(profileError instanceof Error ? profileError.message : 'Could not load your profile.')
+    }
+  }
 
   const loadPosts = useCallback(async () => {
     const userId = currentUserId()
@@ -122,10 +155,25 @@ const MainFeed = () => {
     if (!content.trim() || isPosting) return
     setIsPosting(true); setError('')
     try {
-      await feedApi.createPost(content.trim(), authorId)
+      await feedApi.createPost(content.trim(), authorId, mediaFile ?? undefined)
       setContent('')
+      setMediaFile(null)
+      if (mediaInputRef.current) mediaInputRef.current.value = ''
       await loadPosts()
     } catch (postError) { setError(postError instanceof Error ? postError.message : 'Could not publish your post.') } finally { setIsPosting(false) }
+  }
+
+  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const isSupported = file.type.startsWith('image/') || file.type.startsWith('video/')
+    if (!isSupported || file.size > 50 * 1024 * 1024) {
+      setError('Choose an image or video smaller than 50 MB.')
+      event.target.value = ''
+      return
+    }
+    setError('')
+    setMediaFile(file)
   }
 
   const requireUser = () => {
@@ -178,37 +226,6 @@ const MainFeed = () => {
   const handlePostAction = (action: () => Promise<unknown>) => {
     if (!requireUser()) return
     void refreshAfter(action)
-  }
-
-  const loadProfile = async (profileUserId = currentUserId()) => {
-    const userId = profileUserId
-    if (!userId) {
-      setError('Log in first to view your profile.')
-      return
-    }
-
-    try {
-      const response = await feedApi.getUser(userId)
-      const nextProfile = response.data
-      setProfile(nextProfile)
-      const viewerId = currentUserId()
-      if (viewerId && viewerId !== userId) {
-        const followingResponse = await feedApi.getFollowing(viewerId)
-        setProfileFollowing(followingResponse.data.includes(userId))
-      } else {
-        setProfileFollowing(false)
-      }
-      setProfileForm({
-        name: nextProfile.name ?? '',
-        username: nextProfile.username ?? '',
-        email: nextProfile.email ?? '',
-        bio: nextProfile.bio ?? '',
-        avatar: nextProfile.avatar ?? '',
-        coverImage: nextProfile.coverImage ?? '',
-      })
-    } catch (profileError) {
-      setError(profileError instanceof Error ? profileError.message : 'Could not load your profile.')
-    }
   }
 
   const toggleProfileFollow = async () => {
@@ -386,7 +403,8 @@ const MainFeed = () => {
               <textarea ref={composerRef} value={content} onChange={(event) => setContent(event.target.value)} placeholder="What is happening?" maxLength={250} aria-label="Post content" className="block min-h-[58px] w-full resize-y border-0 bg-transparent text-xl leading-relaxed text-[#0f1419] outline-none placeholder:text-[#536471]" />
               <div className="mt-3 flex items-center gap-2">
                 <div className="flex flex-1 items-center gap-1 text-[#1d9bf0]">
-                  <button type="button" aria-label="Add image" className="flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-sm transition hover:bg-[#e8f5fd]"><i className="fa-regular fa-image" /></button>
+                  <input ref={mediaInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaChange} />
+                  <button type="button" aria-label="Add image or video" onClick={() => mediaInputRef.current?.click()} className="flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-sm transition hover:bg-[#e8f5fd]"><i className="fa-regular fa-image" /></button>
                   <button type="button" aria-label="Add GIF" className="flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-sm transition hover:bg-[#e8f5fd]"><i className="fa-solid fa-g" /></button>
                   <button type="button" aria-label="Add poll" className="flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-sm transition hover:bg-[#e8f5fd]"><i className="fa-solid fa-chart-column" /></button>
                   <button type="button" aria-label="Add emoji" className="flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-sm transition hover:bg-[#e8f5fd]"><i className="fa-regular fa-face-smile" /></button>
@@ -394,6 +412,7 @@ const MainFeed = () => {
                 <span className="text-[11px] text-[#536471]">{content.length}/250</span>
                 <button className="min-w-[66px] rounded-full border-0 bg-[#1d9bf0] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#1a8cd8] disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={!content.trim() || isPosting}>{isPosting ? 'Posting...' : 'Post'}</button>
               </div>
+              {mediaFile && <div className="mt-2 flex items-center justify-between gap-2 rounded-md bg-[#e8f5fd] px-3 py-2 text-xs text-[#0f1419]"><span className="min-w-0 truncate">{mediaFile.name}</span><button type="button" className="border-0 bg-transparent text-[#536471] hover:text-[#f4212e]" onClick={() => { setMediaFile(null); if (mediaInputRef.current) mediaInputRef.current.value = '' }} aria-label="Remove attachment">&times;</button></div>}
             </div>
           </form>
 
@@ -422,12 +441,20 @@ const MainFeed = () => {
                       )}
                     </div>
                     <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-6 text-[#0f1419]">{post.content}</p>
+                    {post.media.length > 0 && <div className="mt-3 overflow-hidden rounded-2xl border border-[#cfd9de]">
+                      {post.media.map((media) => media.type === 'VIDEO' ? (
+                        <video key={media.id} className="max-h-[520px] w-full bg-black object-contain" src={media.url} controls preload="metadata" />
+                      ) : (
+                        <img key={media.id} className="max-h-[520px] w-full object-cover" src={media.url} alt="Post attachment" loading="lazy" />
+                      ))}
+                    </div>}
                     <div className="mt-3 flex max-w-[500px] justify-between gap-2 text-[#536471]">
                       <button type="button" onClick={() => toggleReply(post.id)} aria-label="Reply" className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs transition hover:bg-[#e8f5fd] hover:text-[#1d9bf0]"><i className="fa-regular fa-comment" /><span>{post.repliesCount}</span></button>
                       <button type="button" onClick={() => handlePostAction(() => feedApi.toggleRepost(post.id, currentUserId()))} aria-label="Repost" className={`inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs transition hover:bg-[#e8f5fd] ${post.reposted ? 'text-[#00ba7c]' : 'text-[#536471]'} hover:text-[#00ba7c]`}><i className="fa-solid fa-retweet" /><span>{post.repostsCount}</span></button>
                       <button type="button" onClick={() => handlePostAction(() => feedApi.toggleLike(post.id, currentUserId()))} aria-label="Like" className={`inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs transition hover:bg-[#ffe7f0] ${post.liked ? 'text-[#f91880]' : 'text-[#536471]'} hover:text-[#f91880]`}><i className={post.liked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'} /><span>{post.likesCount}</span></button>
                       <button type="button" onClick={() => handlePostAction(() => feedApi.addBookmark(post.id, currentUserId()))} aria-label="Bookmark" className={`inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs transition hover:bg-[#e8f5fd] ${post.bookmarked ? 'text-[#1d9bf0]' : 'text-[#536471]'} hover:text-[#1d9bf0]`}><i className={post.bookmarked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'} /><span>{post.bookmarksCount}</span></button>
                       <button type="button" aria-label="Share" className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs text-[#536471] transition hover:bg-[#e8f5fd] hover:text-[#1d9bf0]"><i className="fa-solid fa-arrow-up-from-bracket" /></button>
+                      <span className="inline-flex items-center gap-2 px-2 py-1 text-xs" aria-label={`${post.viewCount} views`}><i className="fa-regular fa-eye" /><span>{post.viewCount}</span></span>
                     </div>
 
                     {post.showReply && (

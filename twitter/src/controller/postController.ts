@@ -88,19 +88,13 @@ export const createPost = async(req: Request, res: Response, next: NextFunction)
     const {content, authorId} = req.body;
     const file = req.file;
 
-    if(!content || content.trim().length === 0){
-        return next(new BadRequestException("Content missing", ErrorCodes.MISSING_REQUIRED_FIELDS))
+    if(!content || content.trim().length === 0 || !authorId){
+        return next(new BadRequestException("Content and author are required", ErrorCodes.MISSING_REQUIRED_FIELDS));
     }
 
     let mediaType: "IMAGE" | "VIDEO" | null = null;
-
-    if(file){
-        if(file.mimetype.startsWith("image/")){
-            mediaType = "IMAGE";
-        }else if(file.mimetype.startsWith("video/")){
-            mediaType = "VIDEO";
-        }
-    }
+    if(file?.mimetype.startsWith("image/")) mediaType = "IMAGE";
+    if(file?.mimetype.startsWith("video/")) mediaType = "VIDEO";
 
     const newPost = await db.orm.public.Post.create({
         content: content.trim(),
@@ -108,13 +102,12 @@ export const createPost = async(req: Request, res: Response, next: NextFunction)
     });
 
     let media = null;
-
     if(file && mediaType){
         const mediaUrl = `/uploads/posts/${file.filename}`;
 
         media = await db.orm.public.PostMedia.create({
             postId: newPost.id,
-            userId: newPost.id,
+            userId: authorId,
             url: mediaUrl,
             type: mediaType
         });
@@ -148,13 +141,20 @@ export const getFeed = async (req: Request, res: Response) => {
     const userId = typeof req.query.userId === "string" ? req.query.userId : undefined;
 
     const feed = await Promise.all(posts.map(async (post) => {
-        const [author, likes, reposts, bookmarks, replies] = await Promise.all([
+        const [author, likes, reposts, bookmarks, replies, media, views] = await Promise.all([
             db.orm.public.User.where({id: post.authorId}).first(),
             db.orm.public.Like.where({postId: post.id}).all(),
             db.orm.public.Repost.where({postId: post.id}).all(),
             db.orm.public.Bookmark.where({postId: post.id}).all(),
             db.orm.public.Post.where({parentId: post.id}).all(),
+            db.orm.public.PostMedia.where({postId: post.id}).all(),
+            db.orm.public.PostView.where({postId: post.id}).all(),
         ]);
+
+        if (userId && !views.some((view) => view.userId === userId)) {
+            await db.orm.public.PostView.create({ postId: post.id, userId });
+            views.push({ id: '', postId: post.id, userId, createdAt: new Date() });
+        }
 
         return {
             ...post,
@@ -166,6 +166,8 @@ export const getFeed = async (req: Request, res: Response) => {
             liked: userId ? likes.some((like) => like.userId === userId) : false,
             reposted: userId ? reposts.some((repost) => repost.userId === userId) : false,
             bookmarked: userId ? bookmarks.some((bookmark) => bookmark.userId === userId) : false,
+            media,
+            viewCount: views.length,
         };
     }));
 

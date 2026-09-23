@@ -13,6 +13,17 @@ export type Post = {
   liked: boolean
   reposted: boolean
   bookmarked: boolean
+  media: PostMedia[]
+  viewCount: number
+}
+
+export type PostMedia = {
+  id: string
+  postId: string
+  userId: string
+  url: string
+  type: 'IMAGE' | 'VIDEO'
+  createdAt: string
 }
 
 export type User = {
@@ -54,9 +65,10 @@ type ApiResponse<T> = {
 
 async function request<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('twitter_token')
+  const isFormData = options?.body instanceof FormData
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
@@ -74,11 +86,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<ApiRespo
 
 export const feedApi = {
   getPosts: (userId?: string) => request<Post[]>(`/posts${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`),
-  createPost: (content: string, authorId: string) =>
-    request<Post>('/posts', {
+  createPost: (content: string, authorId: string, media?: File) => {
+    if (media) {
+      const body = new FormData()
+      body.append('content', content)
+      body.append('authorId', authorId)
+      body.append('media', media)
+      return request<Post>('/posts', { method: 'POST', body })
+    }
+
+    return request<Post>('/posts', {
       method: 'POST',
       body: JSON.stringify({ content, authorId }),
-    }),
+    })
+  },
   toggleLike: (postId: string, userId: string) =>
     request<unknown>('/likes', {
       method: 'POST',

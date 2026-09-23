@@ -53,6 +53,34 @@ export type NotificationItem = {
 
 export type SessionUser = User & { email: string; token: string }
 
+export type ChatMessage = {
+  id: string
+  conversationId: string
+  senderId: string
+  content?: string | null
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE'
+  createdAt: string
+  sender?: User | null
+  reactions: MessageReaction[]
+}
+
+export type MessageReaction = {
+  id: string
+  messageId: string
+  userId: string
+  emoji: string
+  createdAt: string
+}
+
+export type Conversation = {
+  id: string
+  type: 'DIRECT' | 'GROUP'
+  name?: string | null
+  members: User[]
+  lastMessage: ChatMessage | null
+  unreadCount: number
+}
+
 type ApiResponse<T> = {
   success: boolean
   data: T
@@ -142,6 +170,19 @@ export const feedApi = {
   createReply: (postId: string, content: string, authorId: string) => request<Post>(`/posts/${postId}/replies`, {
     method: 'POST',
     body: JSON.stringify({ content, authorId }),
+  }),
+}
+
+export const chatApi = {
+  getConversations: (userId: string) => request<Conversation[]>(`/chat/conversations?userId=${encodeURIComponent(userId)}`),
+  createDirectConversation: (userId: string, otherUserId: string) => request<Conversation>('/chat/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ userId, otherUserId }),
+  }),
+  getMessages: (conversationId: string, userId: string) => request<ChatMessage[]>(`/chat/conversations/${encodeURIComponent(conversationId)}/messages?userId=${encodeURIComponent(userId)}`),
+  markRead: (conversationId: string, userId: string) => request<null>(`/chat/conversations/${encodeURIComponent(conversationId)}/read`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
   }),
 }
 

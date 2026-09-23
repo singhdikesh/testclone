@@ -1,4 +1,5 @@
 import express from "express";
+ import http from "node:http";
 import user from "./routes/userRoutes.ts";
 import auth from "./routes/authRoutes.ts";
 import post from "./routes/postRoutes.ts";
@@ -11,10 +12,13 @@ import { createNotification, getNotification, markNotificationAsRead } from "./c
 import { asyncHandler } from "./utils/asyncHandler.ts";
 import { errorMiddleware } from "./middleware/error.ts";
 import path from "node:path";
+import { setupChatWebSocket } from "./websocket/chat.ts";
+import chat from "./routes/chatRoutes.ts";
 
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
+const server = http.createServer(app);
 
 app.use(express.json());
 
@@ -23,6 +27,7 @@ app.use("/users", user);
 app.use("/auth", auth);
 app.use("/posts", post);
 app.use("/search", search);
+app.use("/chat", chat);
 app.post("/likes", asyncHandler(likePost));
 app.post("/reposts", asyncHandler(repost));
 app.post("/bookmarks", asyncHandler(createBookmark));
@@ -35,11 +40,17 @@ app.patch("/notifications/:id/read", asyncHandler(markNotificationAsRead));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(errorMiddleware);
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+// app.listen(port, () => {
+//   console.log(`Server running at http://localhost:${port}`);
+// });
+
+
+
+setupChatWebSocket(server);
+
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
-
-
 
 
 

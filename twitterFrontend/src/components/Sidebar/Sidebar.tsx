@@ -35,7 +35,7 @@ export const Sidebar = () => {
     setActiveItem(label)
     window.history.pushState(null, '', event.currentTarget.pathname)
     const normalized = label.toLowerCase()
-    if (normalized === 'notifications' || normalized === 'home' || normalized === 'explore' || normalized === 'follow' || normalized === 'bookmarks' || normalized === 'profile') {
+    if (normalized === 'notifications' || normalized === 'home' || normalized === 'explore' || normalized === 'follow' || normalized === 'messages' || normalized === 'bookmarks' || normalized === 'profile') {
       window.dispatchEvent(new CustomEvent('navigate-to', { detail: normalized }))
     }
   }

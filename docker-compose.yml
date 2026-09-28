@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: twitter-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: twitter_clone
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  redis:
+    image: redis:7
+    container_name: twitter-redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+
+  backend:
+    build:
+      context: ./twitter
+      dockerfile: Dockerfile
+
+    container_name: twitter-backend
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - ./twitter:/app
+      - /app/node_modules
+
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/twitter_clone
+      REDIS_URL: redis://redis:6379
+
+    depends_on:
+      - postgres
+      - redis
+
+    command: sh -c "npx prisma contract emit && npx prisma db migrate --advance-ref db && npm run dev"
+
+volumes:
+  postgres_data:
+  redis_data:
